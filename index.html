@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>N1 Puzzle Mania </title>
+  <link rel="icon" href="favicon.png" type="image/png"/>
+  <style>
+    body {
+      background: linear-gradient(135deg, #120529, #ff007a);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      font-family: 'Poppins', sans-serif;
+      color: #fff;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      text-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+      margin: 10px 0;
+    }
+
+    .preview {
+      width: 220px;
+      border-radius: 15px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+      margin-bottom: 20px;
+      transition: transform 0.3s ease;
+    }
+
+    .preview:hover {
+      transform: scale(1.08);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    }
+
+    .controls select, .controls button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .controls select {
+      background: #fff;
+      color: #120529;
+      font-weight: 500;
+    }
+
+    .controls button {
+      background: #ff007a;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .controls button:hover {
+      background: #e6006b;
+      transform: translateY(-3px);
+    }
+
+    .stats {
+      display: flex;
+      gap: 25px;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+
+    .puzzle-container {
+      display: grid;
+      width: 90vw;
+      max-width: 500px;
+      aspect-ratio: 1 / 1;
+      gap: 3px;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      background: #000;
+      transition: border 0.3s;
+    }
+
+    .puzzle-container.bordered {
+      border: 4px solid #ff007a;
+    }
+
+    .tile {
+      background-image: url('baddie.jpg');
+      background-size: var(--bg-size);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s;
+    }
+
+    .tile:hover {
+      transform: scale(1.03);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .empty {
+      background: #1a1a1a;
+      cursor: default;
+    }
+
+    .win-animation .tile {
+      animation: winGlow 0.6s infinite alternate;
+    }
+
+    @keyframes winGlow {
+      to {
+        transform: scale(1.06);
+        box-shadow: 0 0 20px rgba(255, 0, 122, 0.8);
+      }
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.6rem; }
+      .preview { width: 160px; }
+      .controls { flex-direction: column; gap: 10px; }
+      .stats { font-size: 0.95rem; gap: 15px; }
+      .puzzle-container { max-width: 350px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>N1 FUN PUZZLE</h1>
+  <img src="baddie.jpg" alt="Puzzle Preview" class="preview" id="preview"/>
+
+  <div class="controls">
+    <select id="difficulty" onchange="restartPuzzle()">
+      <option value="3">Easy (3x3)</option>
+      <option value="4" selected>Medium (4x4)</option>
+      <option value="5">Hard (5x5)</option>
+    </select>
+    <div class="stats">
+      <span id="timer">Time: 0s</span>
+      <span id="moves">Moves: 0</span>
+      <span id="best">Best: -</span>
+    </div>
+    <button onclick="restartPuzzle()">Restart</button>
+    <button onclick="solvePuzzle()">Solve</button>
+    <button onclick="toggleBorder()">Toggle Border</button>
+  </div>
+
+  <div class="puzzle-container" id="puzzle"></div>
+  <audio id="moveSound" src="move.mp3"></audio>
+
+  <script>
+    const container = document.getElementById('puzzle');
+    const timerDisplay = document.getElementById('timer');
+    const movesDisplay = document.getElementById('moves');
+    const bestDisplay = document.getElementById('best');
+    const difficultySelect = document.getElementById('difficulty');
+    const previewImage = document.getElementById('preview');
+    const moveSound = document.getElementById('moveSound');
+    let size = parseInt(difficultySelect.value);
+    let tiles = [];
+    let timer = null;
+    let seconds = 0;
+    let moves = 0;
+    let isSolving = false;
+
+    
+    const fontLink = document.createElement('link');
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap';
+    fontLink.rel = 'stylesheet';
+    document.head.appendChild(fontLink);
+
+    
+    previewImage.onerror = () => {
+      alert("Error: 'baddie.png' not found. Ensure it's in the same directory as the HTML file.");
+    };
+
+    
+    moveSound.onerror = () => {
+      console.warn("Warning: 'move.mp3' not found. Ensure it's in the same directory.");
+    };
+
+    
+    function loadBest() {
+      const best = JSON.parse(localStorage.getItem(`N1PuzzleBest${size}`)) || { time: Infinity, moves: Infinity };
+      bestDisplay.textContent = best.time === Infinity ? 'Best: -' : `Best: ${best.time}s, ${best.moves}m`;
+    }
+
+    function saveBest() {
+      const currentBest = JSON.parse(localStorage.getItem(`N1PuzzleBest${size}`)) || { time: Infinity, moves: Infinity };
+      if (seconds < currentBest.time || (seconds === currentBest.time && moves < currentBest.moves)) {
+        localStorage.setItem(`N1PuzzleBest${size}`, JSON.stringify({ time: seconds, moves }));
+        loadBest();
+      }
+    }
+
+    function startTimer() {
+      clearInterval(timer);
+      seconds = 0;
+      moves = 0;
+      timerDisplay.textContent = 'Time: 0s';
+      movesDisplay.textContent = 'Moves: 0';
+      timer = setInterval(() => {
+        seconds++;
+        timerDisplay.textContent = `Time: ${seconds}s`;
+      }, 1000);
+    }
+
+    function createTiles() {
+      size = parseInt(difficultySelect.value);
+      const totalTiles = size * size;
+      container.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+      container.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+      container.style.setProperty('--bg-size', `${size * 100}% ${size * 100}%`);
+      tiles = [];
+      for (let i = 0; i < totalTiles; i++) {
+        const tile = document.createElement('div');
+        tile.classList.add('tile');
+        tile.dataset.id = i;
+        const row = Math.floor(i / size);
+        const col = i % size;
+        tile.style.backgroundPosition = `${(col * 100) / (size - 1)}% ${(row * 100) / (size - 1)}%`;
+        tiles.push(tile);
+      }
+      tiles[totalTiles - 1].classList.add('empty');
+    }
+
+    function shuffleTiles() {
+      const movable = tiles.filter(tile => !tile.classList.contains('empty'));
+      for (let i = movable.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [movable[i], movable[j]] = [movable[j], movable[i]];
+      }
+      const emptyTile = tiles.find(tile => tile.classList.contains('empty'));
+      tiles = [...movable, emptyTile];
+      
+      if (!isSolvable()) {
+        
+        if (movable.length >= 2) {
+          [movable[0], movable[1]] = [movable[1], movable[0]];
+          tiles = [...movable, emptyTile];
+        }
+      }
+    }
+
+    
+    function isSolvable() {
+      let inversionCount = 0;
+      const flatTiles = tiles.map(tile => parseInt(tile.dataset.id));
+      for (let i = 0; i < flatTiles.length - 1; i++) {
+        for (let j = i + 1; j < flatTiles.length; j++) {
+          if (flatTiles[i] && flatTiles[j] && flatTiles[i] > flatTiles[j]) {
+            inversionCount++;
+          }
+        }
+      }
+      const emptyRow = Math.floor(getEmptyIndex() / size) + 1;
+      if (size % 2 === 1) {
+        return inversionCount % 2 === 0;
+      } else {
+        return (inversionCount + emptyRow) % 2 === 0;
+      }
+    }
+
+    function render() {
+      container.innerHTML = '';
+      tiles.forEach(tile => container.appendChild(tile));
+    }
+
+    function getEmptyIndex() {
+      return tiles.findIndex(tile => tile.classList.contains('empty'));
+    }
+
+    function canMove(tileId) {
+      const emptyIndex = getEmptyIndex();
+      const x1 = tileId % size, y1 = Math.floor(tileId / size);
+      const x2 = emptyIndex % size, y2 = Math.floor(emptyIndex / size);
+      return Math.abs(x1 - x2) + Math.abs(y1 - y2) === 1;
+    }
+
+    function moveTile(tileId) {
+      if (isSolving) return;
+      const emptyIndex = getEmptyIndex();
+      [tiles[tileId], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[tileId]];
+      moves++;
+      movesDisplay.textContent = `Moves: ${moves}`;
+      
+      moveSound.currentTime = 0; 
+      moveSound.play().catch(err => console.warn("Audio play failed:", err));
+      render();
+    }
+
+    function checkWin() {
+      if (isSolving) return;
+      const isCorrect = tiles.every((tile, i) => (
+        tile.dataset.id == i && !tile.classList.contains('empty') ||
+        tile.classList.contains('empty') && i === size * size - 1
+      ));
+      if (isCorrect) {
+        clearInterval(timer);
+        container.classList.add('win-animation');
+        setTimeout(() => {
+          alert(`🎉 You crushed it! Solved in ${seconds}s with ${moves} moves!`);
+          saveBest();
+          container.classList.remove('win-animation');
+        }, 600);
+      }
+    }
+
+    function solvePuzzle() {
+      isSolving = true;
+      createTiles();
+      tiles.forEach((tile, i) => tile.dataset.id = i);
+      tiles[tiles.length - 1].classList.add('empty');
+      render();
+      clearInterval(timer);
+      moves = 0;
+      seconds = 0;
+      timerDisplay.textContent = 'Time: 0s';
+      movesDisplay.textContent = 'Moves: 0';
+      setTimeout(() => isSolving = false, 100);
+    }
+
+    function toggleBorder() {
+      container.classList.toggle('bordered');
+    }
+
+    container.addEventListener('click', e => {
+      const tile = e.target;
+      const tileId = tiles.indexOf(tile);
+      if (tileId !== -1 && canMove(tileId)) {
+        moveTile(tileId);
+        checkWin();
+      }
+    });
+
+    function restartPuzzle() {
+      isSolving = false;
+      createTiles();
+      shuffleTiles();
+      render();
+      startTimer();
+      container.classList.remove('win-animation');
+      loadBest();
+    }
+
+    restartPuzzle();
+  </script>
+</body>
+</html>
