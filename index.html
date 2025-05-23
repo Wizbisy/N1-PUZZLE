@@ -3,8 +3,17 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>N1 Puzzle Mania </title>
+  <title>N1 Puzzle Mania</title>
   <link rel="icon" href="favicon.png" type="image/png"/>
+
+  <!-- ready -->
+  <meta property="og:title" content="N1 FUN PUZZLE" />
+  <meta property="og:description" content="Try to solve this slick Monad-style image puzzle!" />
+  <meta property="og:image" content="https://n1-puzzle.vercel.app/preview.jpg" />
+  <meta property="og:url" content="https://n1-puzzle.vercel.app/" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
   <style>
     body {
       background: linear-gradient(135deg, #120529, #ff007a);
@@ -174,23 +183,19 @@
     let moves = 0;
     let isSolving = false;
 
-    
     const fontLink = document.createElement('link');
     fontLink.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap';
     fontLink.rel = 'stylesheet';
     document.head.appendChild(fontLink);
 
-    
     previewImage.onerror = () => {
       alert("Error: 'baddie.png' not found. Ensure it's in the same directory as the HTML file.");
     };
 
-    
     moveSound.onerror = () => {
       console.warn("Warning: 'move.mp3' not found. Ensure it's in the same directory.");
     };
 
-    
     function loadBest() {
       const best = JSON.parse(localStorage.getItem(`N1PuzzleBest${size}`)) || { time: Infinity, moves: Infinity };
       bestDisplay.textContent = best.time === Infinity ? 'Best: -' : `Best: ${best.time}s, ${best.moves}m`;
@@ -243,9 +248,7 @@
       }
       const emptyTile = tiles.find(tile => tile.classList.contains('empty'));
       tiles = [...movable, emptyTile];
-      
       if (!isSolvable()) {
-        
         if (movable.length >= 2) {
           [movable[0], movable[1]] = [movable[1], movable[0]];
           tiles = [...movable, emptyTile];
@@ -253,7 +256,6 @@
       }
     }
 
-    
     function isSolvable() {
       let inversionCount = 0;
       const flatTiles = tiles.map(tile => parseInt(tile.dataset.id));
@@ -294,8 +296,7 @@
       [tiles[tileId], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[tileId]];
       moves++;
       movesDisplay.textContent = `Moves: ${moves}`;
-      
-      moveSound.currentTime = 0; 
+      moveSound.currentTime = 0;
       moveSound.play().catch(err => console.warn("Audio play failed:", err));
       render();
     }
